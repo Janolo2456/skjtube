@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SKJtube</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #0f0f0f;
+      color: #f1f1f1;
+      font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    /* ─── Wspólne ─────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      padding: 16px 0 8px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: -0.5px;
+      color: #ff0000;
+    }
+    .header .subtitle {
+      color: #aaa;
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+    #status {
+      text-align: center;
+      color: #aaa;
+      margin: 16px 0;
+      font-size: 0.95rem;
+      min-height: 1.2em;
+    }
+    .error { color: #ff6666; }
+
+    /* ─── Ekran GŁÓWNY ────────────────────────────────────── */
+    #view-home { display: block; }
+    #view-home.hidden { display: none; }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      max-width: 900px;
+      margin: 0 auto 24px;
+    }
+    button.video-btn {
+      background: #272727;
+      color: #f1f1f1;
+      border: 1px solid #3f3f3f;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s, transform 0.1s, border-color 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    button.video-btn:hover  { background: #3f3f3f; border-color: #555; }
+    button.video-btn:active { transform: scale(0.97); }
+    button.video-btn.cached {
+      background: #1b3a1b;
+      border-color: #2d5b2d;
+      color: #8ce28c;
+    }
+    button.video-btn.cached:hover { background: #2d5b2d; }
+    .badge {
+      font-size: 0.7rem;
+      background: rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .controls-bar {
+      max-width: 900px;
+      margin: 12px auto;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .controls-bar button {
+      background: #272727;
+      color: #aaa;
+      border: 1px solid #3f3f3f;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .controls-bar button:hover { background: #3f3f3f; color: #fff; }
+
+    /* ─── Ekran ODTWARZACZA ───────────────────────────────── */
+    #view-player { display: none; }
+    #view-player.active { display: block; }
+
+    .player-topbar {
+      max-width: 900px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    button.back-btn {
+      background: #272727;
+      color: #f1f1f1;
+      border: 1px solid #3f3f3f;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button.back-btn:hover  { background: #3f3f3f; }
+    button.back-btn:active { transform: scale(0.97); }
+    .player-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #fff;
+      word-break: break-all;
+    }
+    .video-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    video { width: 100%; display: block; }
+    #player-status {
+      max-width: 900px;
+      margin: 12px auto 0;
+      text-align: center;
+      color: #aaa;
+      font-size: 0.9rem;
+      min-height: 1.2em;
+    }
+
+    /* ─── Modal (overlay) ────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(2px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #1a1a1a;
+      border: 1px solid #3f3f3f;
+      border-radius: 12px;
+      max-width: 560px;
+      width: 100%;
+      max-height: 85vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+    .modal-close:hover { color: #fff; }
+    .modal-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+    }
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid #2a2a2a;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    /* Przełącznik (toggle) */
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      gap: 16px;
+    }
+    .setting-row .label {
+      font-size: 0.95rem;
+      color: #f1f1f1;
+    }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .toggle input { display: none; }
+    .toggle .slider {
+      position: absolute;
+      inset: 0;
+      background: #444;
+      border-radius: 12px;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+    .toggle .slider::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle input:checked + .slider { background: #ff0000; }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
+
+    /* Lista pobranych filmów w modalu */
+    .cached-list { display: flex; flex-direction: column; gap: 8px; }
+    .cached-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      background: #272727;
+      border: 1px solid #3f3f3f;
+      border-radius: 8px;
+    }
+    .cached-item .name {
+      font-size: 0.9rem;
+      color: #f1f1f1;
+      word-break: break-all;
+    }
+    .cached-item .size {
+      font-size: 0.75rem;
+      color: #888;
+      margin-top: 2px;
+    }
+    .cached-item button {
+      background: #5b1b1b;
+      color: #ff8888;
+      border: 1px solid #8c2d2d;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .cached-item button:hover { background: #8c2d2d; color: #fff; }
+    .modal-empty {
+      text-align: center;
+      color: #888;
+      padding: 24px 0;
+      font-size: 0.9rem;
+    }
+    .btn-danger {
+      background: #5b1b1b !important;
+      color: #ff8888 !important;
+      border: 1px solid #8c2d2d !important;
+    }
+    .btn-danger:hover { background: #8c2d2d !important; color: #fff !important; }
+
+    /* ─── Wyszukiwarka ──────────────────────────────────── */
+    .search-bar {
+      max-width: 900px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      background: #1a1a1a;
+      border: 1px solid #3f3f3f;
+      border-radius: 24px;
+      padding: 0 16px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-bar:focus-within {
+      border-color: #ff0000;
+      box-shadow: 0 0 0 3px rgba(255,0,0,0.15);
+    }
+    .search-bar svg {
+      width: 18px;
+      height: 18px;
+      color: #888;
+      flex-shrink: 0;
+    }
+    .search-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #f1f1f1;
+      font-size: 0.95rem;
+      padding: 12px 12px;
+      outline: none;
+      font-family: inherit;
+    }
+    .search-bar input::placeholder { color: #777; }
+    .search-bar .clear-search {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+      padding: 0 4px;
+      display: none;
+    }
+    .search-bar .clear-search:hover { color: #fff; }
+    .search-bar .clear-search.visible { display: inline; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       EKRAN 1 — STRONA GŁÓWNA (lista filmów)
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="view-home">
+    <div class="header">
+      <h1>▶ SKJtube</h1>
+      <div class="subtitle">Alternatywa dla YouTube</div>
+    </div>
+
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" id="searchInput" placeholder="Szukaj filmów…" autocomplete="off">
+      <button class="clear-search" id="clearSearchBtn" title="Wyczyść">×</button>
+    </div>
+
+    <div id="status">Ładowanie listy filmów…</div>
+
+    <div class="buttons" id="buttons"></div>
+
+    <div class="controls-bar" id="controlsBar" style="display:none;">
+      <button id="settingsBtn">Ustawienia</button>
+      <button id="clearCacheBtn">Wyczyść pobrane filmy</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODAL — USTAWIENIA
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Ustawienia</h2>
+        <button class="modal-close" data-close="settingsModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-row">
+          <div class="label">Usuwaj film od razu po wyjściu z filmu</div>
+          <label class="toggle">
+            <input type="checkbox" id="autoDeleteToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button data-close="settingsModal" style="background:#272727;color:#aaa;border:1px solid #3f3f3f;padding:6px 14px;border-radius:6px;cursor:pointer;">Zamknij</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODAL — WYCZYŚĆ POBRANE FILMY
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="clearCacheModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Pobrane filmy</h2>
+        <button class="modal-close" data-close="clearCacheModal">×</button>
+      </div>
+      <div class="modal-body" id="clearCacheBody"></div>
+      <div class="modal-footer">
+        <button id="deleteAllBtn" class="btn-danger" style="padding:6px 14px;border-radius:6px;cursor:pointer;">Usuń wszystko</button>
+        <button data-close="clearCacheModal" style="background:#272727;color:#aaa;border:1px solid #3f3f3f;padding:6px 14px;border-radius:6px;cursor:pointer;">Zamknij</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       EKRAN 2 — ODTWARZACZ
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="view-player">
+    <div class="player-topbar">
+      <button class="back-btn" id="backBtn">← Wstecz</button>
+      <div class="player-title" id="playerTitle"></div>
+    </div>
+
+    <div class="video-container">
+      <video id="player" controls playsinline></video>
+    </div>
+
+    <div id="player-status"></div>
+  </div>
+
+  <script>
+    // ─── Konfiguracja ─────────────────────────────────────────────
+    const REPO_OWNER = 'SKJ-Technology';
+    const REPO_NAME  = 'SKJtube';
+    const API_META   = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`;
+    let   RAW_BASE   = '';  // ustawiane po wykryciu domyślnej gałęzi
+
+    // ─── Ustawienia (localStorage) ───────────────────────────────
+    const LS_AUTODELETE_KEY = 'skjtube.autoDeleteOnExit';
+    function getAutoDelete() { return localStorage.getItem(LS_AUTODELETE_KEY) === '1'; }
+    function setAutoDelete(v) { localStorage.setItem(LS_AUTODELETE_KEY, v ? '1' : '0'); }
+
+    // ─── Nawigacja między ekranami ────────────────────────────────
+    let currentFileName = null; // nazwa pliku aktualnie odtwarzanego
+
+    async function showHome() {
+      // zatrzymaj odtwarzanie przy powrocie
+      const player = document.getElementById('player');
+      try { player.pause(); } catch(_) {}
+      player.removeAttribute('src');
+      player.load();
+      if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
+
+      // jeśli włączone auto-usuwanie — usuń aktualny film z pamięci
+      const fileToDelete = currentFileName;
+      currentFileName = null;
+      if (fileToDelete && getAutoDelete()) {
+        try {
+          await deleteVideo(fileToDelete);
+          const btn = document.querySelector(`button[data-name="${CSS.escape(fileToDelete)}"]`);
+          if (btn) btn.classList.remove('cached');
+          document.getElementById('status').textContent =
+            `Film „${fileToDelete.replace(/\.mp4$/i, '')}” został usunięty z pamięci.`;
+        } catch (err) {
+          console.error('Auto-delete failed:', err);
+        }
+      }
+
+      document.getElementById('view-home').classList.remove('hidden');
+      document.getElementById('view-player').classList.remove('active');
+      // odznacz aktywne przyciski
+      document.querySelectorAll('button.video-btn').forEach(b => b.classList.remove('playing'));
+    }
+
+    function showPlayer(label) {
+      document.getElementById('playerTitle').textContent = label;
+      document.getElementById('view-home').classList.add('hidden');
+      document.getElementById('view-player').classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.getElementById('backBtn').addEventListener('click', showHome);
+
+    // ─── IndexedDB (pamięć przeglądarki dla dużych plików) ───────
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('SKJtubeDB', 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('videos')) {
+            db.createObjectStore('videos', { keyPath: 'name' });
+          }
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror   = (e) => reject(e.target.error);
+      });
+    }
+
+    async function getCachedVideo(name) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('videos', 'readonly');
+        const req = tx.objectStore('videos').get(name);
+        req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+        req.onerror   = () => reject(req.error);
+      });
+    }
+
+    async function cacheVideo(name, blob) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('videos', 'readwrite');
+        tx.objectStore('videos').put({ name, blob });
+        tx.oncomplete = () => resolve();
+        tx.onerror    = () => reject(tx.error);
+      });
+    }
+
+    async function clearCache() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('videos', 'readwrite');
+        tx.objectStore('videos').clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror    = () => reject(tx.error);
+      });
+    }
+
+    async function deleteVideo(name) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('videos', 'readwrite');
+        tx.objectStore('videos').delete(name);
+        tx.oncomplete = () => resolve();
+        tx.onerror    = () => reject(tx.error);
+      });
+    }
+
+    async function listCachedVideos() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('videos', 'readonly');
+        const req = tx.objectStore('videos').getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror   = () => reject(req.error);
+      });
+    }
+
+    // ─── GitHub API ──────────────────────────────────────────────
+    async function detectDefaultBranch() {
+      const res = await fetch(API_META);
+      if (!res.ok) throw new Error(`Nie można pobrać metadanych repo (${res.status})`);
+      const data = await res.json();
+      return data.default_branch || 'main';
+    }
+
+    async function fetchVideoList(branch) {
+      const res = await fetch(`${API_META}/contents/?ref=${branch}`);
+      if (!res.ok) throw new Error(`Nie można pobrać listy plików (${res.status})`);
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Nieoczekiwana odpowiedź API');
+      // Tylko pliki .mp4, ignorujemy README i inne
+      return data.filter(f => f.type === 'file' && /\.mp4$/i.test(f.name));
+    }
+
+    // ─── Odtwarzacz ──────────────────────────────────────────────
+    let currentBlobUrl = null;
+
+    async function playVideo(fileName) {
+      const player   = document.getElementById('player');
+      const pstatus  = document.getElementById('player-status');
+      const btn      = document.querySelector(`button[data-name="${CSS.escape(fileName)}"]`);
+
+      // oznacz aktywny przycisk na liście (na później, jak wrócimy)
+      document.querySelectorAll('button.video-btn').forEach(b => b.classList.remove('playing'));
+      if (btn) { btn.classList.add('loading'); btn.classList.add('playing'); }
+
+      // przejdź do ekranu odtwarzacza
+      const label = fileName.replace(/\.mp4$/i, '');
+      showPlayer(label);
+
+      try {
+        let blob = await getCachedVideo(fileName);
+
+        if (blob) {
+          pstatus.textContent = `Odtwarzanie z pamięci (IndexedDB)…`;
+        } else {
+          pstatus.textContent = `Pobieranie „${fileName}”… (może chwilę potrwać)`;
+          const url = RAW_BASE + encodeURIComponent(fileName);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          blob = await res.blob();
+          await cacheVideo(fileName, blob);
+          pstatus.textContent = `Pobrano i zapisano w pamięci. Odtwarzanie…`;
+          if (btn) btn.classList.add('cached');
+        }
+
+        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+        currentBlobUrl = URL.createObjectURL(blob);
+        currentFileName = fileName;
+        player.src = currentBlobUrl;
+        await player.play();
+        if (btn) btn.classList.remove('loading');
+        pstatus.textContent = ``;
+      } catch (err) {
+        pstatus.innerHTML = `<span class="error">Błąd: ${err.message}</span>`;
+        if (btn) btn.classList.remove('loading');
+      }
+    }
+
+    // ─── Render listy przycisków ─────────────────────────────────
+    async function init() {
+      const status     = document.getElementById('status');
+      const buttonsDiv = document.getElementById('buttons');
+      const controlsBar= document.getElementById('controlsBar');
+
+      try {
+        status.textContent = 'Wykrywanie gałęzi repozytorium…';
+        const branch = await detectDefaultBranch();
+        RAW_BASE = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${branch}/`;
+
+        status.textContent = 'Pobieranie listy plików MP4…';
+        const videos = await fetchVideoList(branch);
+
+        if (videos.length === 0) {
+          status.textContent = 'Brak plików .mp4 w repozytorium.';
+          return;
+        }
+
+        buttonsDiv.innerHTML = '';
+        for (const v of videos) {
+          const fileName = v.name;
+          const label    = fileName.replace(/\.mp4$/i, ''); // ucinamy .mp4
+          const btn      = document.createElement('button');
+          btn.className  = 'video-btn';
+          btn.textContent = label;
+          btn.dataset.name = fileName;
+          btn.dataset.label = label.toLowerCase(); // do filtrowania
+
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = `${(v.size / 1024 / 1024).toFixed(1)} MB`;
+          btn.appendChild(badge);
+
+          // sprawdź czy jest już w pamięci
+          const cached = await getCachedVideo(fileName);
+          if (cached) btn.classList.add('cached');
+
+          btn.addEventListener('click', () => playVideo(fileName));
+          buttonsDiv.appendChild(btn);
+        }
+
+        status.textContent = `Znaleziono ${videos.length} filmów. Kliknij przycisk, aby odtworzyć.`;
+        controlsBar.style.display = 'flex';
+        applySearch(); // zastosuj ewentualny wpisany wcześniej filtr
+      } catch (err) {
+        status.innerHTML = `<span class="error">Błąd: ${err.message}</span>`;
+      }
+    }
+
+    // ─── Wyszukiwarka ─────────────────────────────────────────────
+    const searchInput   = document.getElementById('searchInput');
+    const clearSearchBtn= document.getElementById('clearSearchBtn');
+    const buttonsDiv    = document.getElementById('buttons');
+    const statusEl      = document.getElementById('status');
+    let lastTotalCount  = 0; // liczba wszystkich filmów (do komunikatu)
+
+    function applySearch() {
+      const query = searchInput.value.trim().toLowerCase();
+      clearSearchBtn.classList.toggle('visible', query.length > 0);
+
+      const allButtons = buttonsDiv.querySelectorAll('button.video-btn');
+      let visibleCount = 0;
+      allButtons.forEach(b => {
+        const label = b.dataset.label || '';
+        const match = !query || label.includes(query);
+        b.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+      });
+
+      if (allButtons.length === 0) return; // lista jeszcze nie załadowana
+
+      if (query) {
+        if (visibleCount === 0) {
+          statusEl.innerHTML = `<span style="color:#aaa;">Brak wyników dla „<strong style="color:#fff;">${escapeHtml(searchInput.value.trim())}</strong>”.</span>`;
+        } else {
+          statusEl.textContent = `Znaleziono ${visibleCount} z ${allButtons.length} filmów.`;
+        }
+      } else {
+        statusEl.textContent = `Znaleziono ${allButtons.length} filmów. Kliknij przycisk, aby odtworzyć.`;
+      }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    searchInput.addEventListener('input', applySearch);
+    clearSearchBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      applySearch();
+      searchInput.focus();
+    });
+    // Esc czyści wyszukiwarkę
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        searchInput.value = '';
+        applySearch();
+      }
+    });
+
+    // ─── Modal — pomocnicze ──────────────────────────────────────
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    document.querySelectorAll('[data-close]').forEach(el => {
+      el.addEventListener('click', () => closeModal(el.dataset.close));
+    });
+    // klik poza modalem zamyka
+    document.querySelectorAll('.modal-overlay').forEach(ov => {
+      ov.addEventListener('click', (e) => {
+        if (e.target === ov) closeModal(ov.id);
+      });
+    });
+
+    // ─── Modal — Ustawienia ───────────────────────────────────────
+    const autoDeleteToggle = document.getElementById('autoDeleteToggle');
+    autoDeleteToggle.checked = getAutoDelete();
+    autoDeleteToggle.addEventListener('change', () => {
+      setAutoDelete(autoDeleteToggle.checked);
+    });
+    document.getElementById('settingsBtn').addEventListener('click', () => {
+      autoDeleteToggle.checked = getAutoDelete();
+      openModal('settingsModal');
+    });
+
+    // ─── Modal — Wyczyść pobrane filmy ────────────────────────────
+    async function renderClearCacheList() {
+      const body = document.getElementById('clearCacheBody');
+      body.innerHTML = '<div class="modal-empty">Ładowanie…</div>';
+      try {
+        const items = await listCachedVideos();
+        if (items.length === 0) {
+          body.innerHTML = '<div class="modal-empty">Brak pobranych filmów.</div>';
+          document.getElementById('deleteAllBtn').style.display = 'none';
+          return;
+        }
+        document.getElementById('deleteAllBtn').style.display = '';
+        const list = document.createElement('div');
+        list.className = 'cached-list';
+        for (const it of items) {
+          const row = document.createElement('div');
+          row.className = 'cached-item';
+          const info = document.createElement('div');
+          const name = document.createElement('div');
+          name.className = 'name';
+          name.textContent = it.name.replace(/\.mp4$/i, '');
+          const size = document.createElement('div');
+          size.className = 'size';
+          size.textContent = `${(it.blob.size / 1024 / 1024).toFixed(1)} MB`;
+          info.appendChild(name);
+          info.appendChild(size);
+          const del = document.createElement('button');
+          del.textContent = 'Usuń';
+          del.addEventListener('click', async () => {
+            try {
+              await deleteVideo(it.name);
+              const btn = document.querySelector(`button[data-name="${CSS.escape(it.name)}"]`);
+              if (btn) btn.classList.remove('cached');
+              renderClearCacheList();
+            } catch (err) {
+              alert('Błąd: ' + err.message);
+            }
+          });
+          row.appendChild(info);
+          row.appendChild(del);
+          list.appendChild(row);
+        }
+        body.innerHTML = '';
+        body.appendChild(list);
+      } catch (err) {
+        body.innerHTML = `<div class="modal-empty"><span class="error">Błąd: ${err.message}</span></div>`;
+      }
+    }
+
+    document.getElementById('clearCacheBtn').addEventListener('click', () => {
+      openModal('clearCacheModal');
+      renderClearCacheList();
+    });
+
+    document.getElementById('deleteAllBtn').addEventListener('click', async () => {
+      if (!confirm('Usunąć WSZYSTKIE pobrane filmy?')) return;
+      try {
+        await clearCache();
+        document.querySelectorAll('button.video-btn').forEach(b => b.classList.remove('cached'));
+        document.getElementById('status').textContent = 'Wszystkie pobrane filmy zostały usunięte.';
+        renderClearCacheList();
+      } catch (err) {
+        alert('Błąd: ' + err.message);
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
